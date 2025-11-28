@@ -304,11 +304,11 @@ summary(forward)
 ```{r}
 
 # Predicting rating
-ypred_forward = predict(object=forward, newdata = RestaurantTest)
+#ypred_forward = predict(object=forward, newdata = RestaurantTest)
 
 # mean absolute error of predicted rating, and Actual rating
-MAE(y_pred = ypred_forward, y_true = RestaurantTest$rating)
+#MAE(y_pred = ypred_forward, y_true = RestaurantTest$rating)
 
 # mean square error of predicted rating, and Actual rating
-MSE(y_pred = ypred_forward, y_true = RestaurantTest$rating)
+#MSE(y_pred = ypred_forward, y_true = RestaurantTest$rating)
 ```
