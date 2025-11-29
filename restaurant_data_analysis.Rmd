@@ -54,7 +54,7 @@ summary(restuarant_data)
 colnames(restuarant_data)
 
 # View data in highly formatted output
-#datatable(restuarant_data)
+datatable(restuarant_data)
 ```
 
 ### 1.3 Attributes to Drop
@@ -125,7 +125,6 @@ write_csv(clean_data, output_file)
 ```{r}
 summary(clean_data)
 ```
-
 
 ### 2.1 Histogram Distribution of Ratings
 Histogram helps to visualize the central tendancy and spread of restaurant ratings
@@ -210,7 +209,6 @@ anova_5_results = aov(rating ~ primaryType, data=top_5_anova_data)
 # view summary of top 5 primaryTypes
 summary(anova_5_results)
 
-
 # ANOVA for all primaryTypes
 anova_results = aov(rating ~ primaryType, data=clean_data)
 
@@ -229,6 +227,7 @@ summary(anova_results)
 ```{r}
 library(MLmetrics)
 library(MASS) # Run stepwise regression, MASS package required
+library(caTools) # for stratified splitting
 ```
 
 ### 4.1: Split data set into 80:20 train and test data with name `RestaurantTraining` and `RestaurantTest` respectively
@@ -240,20 +239,14 @@ set.seed(42)
 data_to_split = clean_data %>%
   mutate(primaryType = as.factor(primaryType))
 
-i = sample(2, nrow(data_to_split), replace = TRUE, prob = c(0.8, 0.2))
-
-RestaurantTraining = data_to_split[i==1, ] # 80% Training sample
-RestaurantTest = data_to_split[i==2, ] # 20% Testing sample
+# perform stratified split on the primaryType column to maintain its distribution
+split = sample.split(data_to_split$primaryType, SplitRatio = 0.8)
+RestaurantTraining = subset(data_to_split, split == TRUE)
+RestaurantTest = subset(data_to_split, split == FALSE)
 
 # Check new dimensions
 cat("Training set size:", nrow(RestaurantTraining), "\n")
 cat("Testing set size:", nrow(RestaurantTest), "\n")
-
-colnames(RestaurantTraining)
-```
-
-```{r}
-colnames(RestaurantTest)
 ```
 
 ### 4.2: Multiple Regression Model
@@ -270,28 +263,14 @@ summary(mr_model)
 * Use this model to predict `rating` in `RestaurantTest` and calculate `MAE` and `MSE`.
 
 ```{r}
-
-
-# Extract the factor levels used by the model
-mr_levels = mr_model$xlevels$primaryType
-
-# Filter the testset to only include levels present in the training set
-RestaurantTest$primaryType = factor(RestaurantTest$primaryType, levels = mr_levels)
-  
 # Predicting rating
 ypred = predict(object=mr_model, newdata = RestaurantTest)
 
-# Create a data frame with true and predicted values
-mr_df <- data.frame(
-  y_true = RestaurantTest$rating,
-  y_pred = ypred
-) %>% na.omit() # Remove rows with NA values in either column
+# # mean absolute error of predicted rating, and Actual rating
+MAE(y_pred = ypred , y_true = RestaurantTest$rating)
 
-# mean absolute error of predicted rating, and Actual rating
-MAE(y_pred = mr_df$y_pred, y_true = RestaurantTest$rating)
-
-# mean square error of predicted rating, and Actual rating
-MSE(y_pred = mr_df$y_pred, y_true = RestaurantTest$rating)
+# # mean square error of predicted rating, and Actual rating
+MSE(y_pred = ypred, y_true = RestaurantTest$rating)
 ```
 
 
@@ -319,25 +298,11 @@ summary(step_forward)
 * Use the `step_forward` model to predict `rating` in `RestaurantTest` and calculate `MAE` and `MSE`.
 
 ```{r}
-
-# Extract the factor levels used by the model
-model_levels = step_forward$xlevels$primaryType
-
-# Filter the testset to only include levels present in the training set
-RestaurantTest$primaryType = factor(RestaurantTest$primaryType, levels = model_levels)
-  
-# Predicting rating
 ypred_forward = predict(object=step_forward, newdata = RestaurantTest)
 
-# Create a data frame with true and predicted values
-results_df <- data.frame(
-  y_true = RestaurantTest$rating,
-  y_pred = ypred_forward
-) %>% na.omit() # Remove rows with NA values in either column
-
 # mean absolute error of predicted rating, and Actual rating
-MAE(y_pred = results_df$y_pred, y_true = results_df$y_true)
+MAE(y_pred = ypred_forward, y_true = RestaurantTest$rating)
 
 # mean square error of predicted rating, and Actual rating
-MSE(y_pred = results_df$y_pred, y_true = results_df$y_true)
+MSE(y_pred = ypred_forward, y_true = RestaurantTest$rating)
 ```
