@@ -820,16 +820,50 @@ respectively</h3>
 <pre class="r"><code># Setting the seed fixes the randomness in the sample() function
 set.seed(42)
 
-i = sample(2, nrow(clean_data), replace = TRUE, prob = c(0.8, 0.2))
+# Ensure primaryType is a factor
+data_to_split = clean_data %&gt;%
+  mutate(primaryType = as.factor(primaryType))
 
-RestaurantTraining = clean_data[i==1, ] # 80% Training sample
-RestaurantTest = clean_data[i==2, ] # 20% Testing sample
+i = sample(2, nrow(data_to_split), replace = TRUE, prob = c(0.8, 0.2))
+
+RestaurantTraining = data_to_split[i==1, ] # 80% Training sample
+RestaurantTest = data_to_split[i==2, ] # 20% Testing sample
 
 # Check new dimensions
 cat(&quot;Training set size:&quot;, nrow(RestaurantTraining), &quot;\n&quot;)</code></pre>
 <pre><code>## Training set size: 5881</code></pre>
 <pre class="r"><code>cat(&quot;Testing set size:&quot;, nrow(RestaurantTest), &quot;\n&quot;)</code></pre>
 <pre><code>## Testing set size: 1497</code></pre>
+<pre class="r"><code>colnames(RestaurantTraining)</code></pre>
+<pre><code>##  [1] &quot;rating&quot;                       &quot;userRatingCount&quot;             
+##  [3] &quot;businessStatus&quot;               &quot;primaryType&quot;                 
+##  [5] &quot;takeout&quot;                      &quot;delivery&quot;                    
+##  [7] &quot;dineIn&quot;                       &quot;curbsidePickup&quot;              
+##  [9] &quot;reservable&quot;                   &quot;servesLunch&quot;                 
+## [11] &quot;servesDinner&quot;                 &quot;servesBeer&quot;                  
+## [13] &quot;servesWine&quot;                   &quot;liveMusic&quot;                   
+## [15] &quot;servesCocktails&quot;              &quot;goodForChildren&quot;             
+## [17] &quot;acceptsCreditCards&quot;           &quot;acceptsDebitCards&quot;           
+## [19] &quot;acceptsCashOnly&quot;              &quot;acceptsNfc&quot;                  
+## [21] &quot;freeParkingLot&quot;               &quot;freeStreetParking&quot;           
+## [23] &quot;wheelchairAccessibleEntrance&quot; &quot;wheelchairAccessibleRestroom&quot;
+## [25] &quot;wheelchairAccessibleSeating&quot;  &quot;priceStartUSD&quot;               
+## [27] &quot;priceEndUSD&quot;</code></pre>
+<pre class="r"><code>colnames(RestaurantTest)</code></pre>
+<pre><code>##  [1] &quot;rating&quot;                       &quot;userRatingCount&quot;             
+##  [3] &quot;businessStatus&quot;               &quot;primaryType&quot;                 
+##  [5] &quot;takeout&quot;                      &quot;delivery&quot;                    
+##  [7] &quot;dineIn&quot;                       &quot;curbsidePickup&quot;              
+##  [9] &quot;reservable&quot;                   &quot;servesLunch&quot;                 
+## [11] &quot;servesDinner&quot;                 &quot;servesBeer&quot;                  
+## [13] &quot;servesWine&quot;                   &quot;liveMusic&quot;                   
+## [15] &quot;servesCocktails&quot;              &quot;goodForChildren&quot;             
+## [17] &quot;acceptsCreditCards&quot;           &quot;acceptsDebitCards&quot;           
+## [19] &quot;acceptsCashOnly&quot;              &quot;acceptsNfc&quot;                  
+## [21] &quot;freeParkingLot&quot;               &quot;freeStreetParking&quot;           
+## [23] &quot;wheelchairAccessibleEntrance&quot; &quot;wheelchairAccessibleRestroom&quot;
+## [25] &quot;wheelchairAccessibleSeating&quot;  &quot;priceStartUSD&quot;               
+## [27] &quot;priceEndUSD&quot;</code></pre>
 </div>
 <div id="multiple-regression-model" class="section level3">
 <h3>4.2: Multiple Regression Model</h3>
@@ -949,14 +983,31 @@ variance in <code>Rings</code>.</li>
 <code>RestaurantTest</code> and calculate <code>MAE</code> and
 <code>MSE</code>.</li>
 </ul>
-<pre class="r"><code># Predicting rating
-#ypred = predict(object=mr_model, newdata = RestaurantTest)
+<pre class="r"><code># Extract the factor levels used by the model
+mr_levels = mr_model$xlevels$primaryType
+
+# Filter the testset to only include levels present in the training set
+RestaurantTest$primaryType = factor(RestaurantTest$primaryType, levels = mr_levels)
+  
+# Predicting rating
+ypred = predict(object=mr_model, newdata = RestaurantTest)
+
+# Create a data frame with true and predicted values
+mr_df &lt;- data.frame(
+  y_true = RestaurantTest$rating,
+  y_pred = ypred
+) %&gt;% na.omit() # Remove rows with NA values in either column
 
 # mean absolute error of predicted rating, and Actual rating
-#MAE(y_pred = ypred, y_true = RestaurantTest$rating)
-
-# mean square error of predicted rating, and Actual rating
-#MSE(y_pred = ypred, y_true = RestaurantTest$rating)</code></pre>
+MAE(y_pred = mr_df$y_pred, y_true = RestaurantTest$rating)</code></pre>
+<pre><code>## Warning in y_true - y_pred: longer object length is not a multiple of shorter
+## object length</code></pre>
+<pre><code>## [1] 0.3558855</code></pre>
+<pre class="r"><code># mean square error of predicted rating, and Actual rating
+MSE(y_pred = mr_df$y_pred, y_true = RestaurantTest$rating)</code></pre>
+<pre><code>## Warning in y_true - y_pred: longer object length is not a multiple of shorter
+## object length</code></pre>
+<pre><code>## [1] 0.2302726</code></pre>
 </div>
 <div id="subset-selection-linear-regression-model" class="section level3">
 <h3>4.3: Subset Selection Linear Regression Model</h3>
@@ -967,7 +1018,7 @@ null_model = lm(rating ~ 1, data = RestaurantTraining)
 full_model = lm(rating~. , data = RestaurantTraining)
 
 # perform step-wise selection using stepAIC()
-forward = stepAIC(null_model, direction=&#39;forward&#39;, scope=formula(full_model))</code></pre>
+step_forward = stepAIC(null_model, direction=&#39;forward&#39;, scope=formula(full_model))</code></pre>
 <pre><code>## Start:  AIC=-8222.59
 ## rating ~ 1
 ## 
@@ -1458,7 +1509,7 @@ forward = stepAIC(null_model, direction=&#39;forward&#39;, scope=formula(full_mo
 ## + takeout                       1   0.01557 1127.3 -9565.1
 ## + reservable                    1   0.01156 1127.3 -9565.0</code></pre>
 <pre class="r"><code># view results of forward stepwise regression
-forward$anova</code></pre>
+step_forward$anova</code></pre>
 <pre><code>## Stepwise Model Path 
 ## Analysis of Deviance Table
 ## 
@@ -1495,7 +1546,7 @@ forward$anova</code></pre>
 ## 19                       + dineIn  1   0.5306825      5808   1127.746 -9566.505
 ## 20  + wheelchairAccessibleSeating  1   0.4744871      5807   1127.272 -9566.980</code></pre>
 <pre class="r"><code># view final model
-summary(forward)</code></pre>
+summary(step_forward)</code></pre>
 <pre><code>## 
 ## Call:
 ## lm(formula = rating ~ primaryType + priceStartUSD + wheelchairAccessibleEntrance + 
@@ -1591,6 +1642,32 @@ summary(forward)</code></pre>
 ## Residual standard error: 0.4406 on 5807 degrees of freedom
 ## Multiple R-squared:  0.2239, Adjusted R-squared:  0.2141 
 ## F-statistic: 22.94 on 73 and 5807 DF,  p-value: &lt; 2.2e-16</code></pre>
+<ul>
+<li>Use the <code>step_forward</code> model to predict
+<code>rating</code> in <code>RestaurantTest</code> and calculate
+<code>MAE</code> and <code>MSE</code>.</li>
+</ul>
+<pre class="r"><code># Extract the factor levels used by the model
+model_levels = step_forward$xlevels$primaryType
+
+# Filter the testset to only include levels present in the training set
+RestaurantTest$primaryType = factor(RestaurantTest$primaryType, levels = model_levels)
+  
+# Predicting rating
+ypred_forward = predict(object=step_forward, newdata = RestaurantTest)
+
+# Create a data frame with true and predicted values
+results_df &lt;- data.frame(
+  y_true = RestaurantTest$rating,
+  y_pred = ypred_forward
+) %&gt;% na.omit() # Remove rows with NA values in either column
+
+# mean absolute error of predicted rating, and Actual rating
+MAE(y_pred = results_df$y_pred, y_true = results_df$y_true)</code></pre>
+<pre><code>## [1] 0.3330847</code></pre>
+<pre class="r"><code># mean square error of predicted rating, and Actual rating
+MSE(y_pred = results_df$y_pred, y_true = results_df$y_true)</code></pre>
+<pre><code>## [1] 0.2078768</code></pre>
 </div>
 </div>
 

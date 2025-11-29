@@ -236,10 +236,14 @@ library(MASS) # Run stepwise regression, MASS package required
 # Setting the seed fixes the randomness in the sample() function
 set.seed(42)
 
-i = sample(2, nrow(clean_data), replace = TRUE, prob = c(0.8, 0.2))
+# Ensure primaryType is a factor
+data_to_split = clean_data %>%
+  mutate(primaryType = as.factor(primaryType))
 
-RestaurantTraining = clean_data[i==1, ] # 80% Training sample
-RestaurantTest = clean_data[i==2, ] # 20% Testing sample
+i = sample(2, nrow(data_to_split), replace = TRUE, prob = c(0.8, 0.2))
+
+RestaurantTraining = data_to_split[i==1, ] # 80% Training sample
+RestaurantTest = data_to_split[i==2, ] # 20% Testing sample
 
 # Check new dimensions
 cat("Training set size:", nrow(RestaurantTraining), "\n")
@@ -267,14 +271,27 @@ summary(mr_model)
 
 ```{r}
 
+
+# Extract the factor levels used by the model
+mr_levels = mr_model$xlevels$primaryType
+
+# Filter the testset to only include levels present in the training set
+RestaurantTest$primaryType = factor(RestaurantTest$primaryType, levels = mr_levels)
+  
 # Predicting rating
-#ypred = predict(object=mr_model, newdata = RestaurantTest)
+ypred = predict(object=mr_model, newdata = RestaurantTest)
+
+# Create a data frame with true and predicted values
+mr_df <- data.frame(
+  y_true = RestaurantTest$rating,
+  y_pred = ypred
+) %>% na.omit() # Remove rows with NA values in either column
 
 # mean absolute error of predicted rating, and Actual rating
-#MAE(y_pred = ypred, y_true = RestaurantTest$rating)
+MAE(y_pred = mr_df$y_pred, y_true = RestaurantTest$rating)
 
 # mean square error of predicted rating, and Actual rating
-#MSE(y_pred = ypred, y_true = RestaurantTest$rating)
+MSE(y_pred = mr_df$y_pred, y_true = RestaurantTest$rating)
 ```
 
 
@@ -289,26 +306,38 @@ null_model = lm(rating ~ 1, data = RestaurantTraining)
 full_model = lm(rating~. , data = RestaurantTraining)
 
 # perform step-wise selection using stepAIC()
-forward = stepAIC(null_model, direction='forward', scope=formula(full_model))
+step_forward = stepAIC(null_model, direction='forward', scope=formula(full_model))
 
 # view results of forward stepwise regression
-forward$anova
+step_forward$anova
 
 # view final model
-summary(forward)
+summary(step_forward)
 
 ```
 
-* Use the forward model to predict `rating` in `RestaurantTest` and calculate `MAE` and `MSE`.
+* Use the `step_forward` model to predict `rating` in `RestaurantTest` and calculate `MAE` and `MSE`.
 
 ```{r}
 
+# Extract the factor levels used by the model
+model_levels = step_forward$xlevels$primaryType
+
+# Filter the testset to only include levels present in the training set
+RestaurantTest$primaryType = factor(RestaurantTest$primaryType, levels = model_levels)
+  
 # Predicting rating
-#ypred_forward = predict(object=forward, newdata = RestaurantTest)
+ypred_forward = predict(object=step_forward, newdata = RestaurantTest)
+
+# Create a data frame with true and predicted values
+results_df <- data.frame(
+  y_true = RestaurantTest$rating,
+  y_pred = ypred_forward
+) %>% na.omit() # Remove rows with NA values in either column
 
 # mean absolute error of predicted rating, and Actual rating
-#MAE(y_pred = ypred_forward, y_true = RestaurantTest$rating)
+MAE(y_pred = results_df$y_pred, y_true = results_df$y_true)
 
 # mean square error of predicted rating, and Actual rating
-#MSE(y_pred = ypred_forward, y_true = RestaurantTest$rating)
+MSE(y_pred = results_df$y_pred, y_true = results_df$y_true)
 ```
