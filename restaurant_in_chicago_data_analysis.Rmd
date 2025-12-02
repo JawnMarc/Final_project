@@ -20,7 +20,9 @@ library(DT) #install.packages("DT") # For highly formatted HTML output
 # Part 1: Data Loading and Cleaning
 ### 1.1 Background
 
-The raw dataset, `restaurants.csv`, starts with 10018 observations across 34 attributes, encompassing a broad range of restaurant information. In its initial state, the data presents several challenges requiring immediate preparation: critical analytical variables such as `rating` and `userRatingCount` contain missing values, necessitating filtering or imputation to maintain data integrity for quality assessment. Furthermore, many of the 34 columns, particularly the numerous service and amenity indicators (e.g., `delivery`, `servesCocktails`), are stored inefficiently as generic object (string) types instead of proper `Booleans` or `numerics`, alongside price information which also requires type conversion. Additionally, columns like `id`, `name`, `formattedAddress`, and geographical coordinates, while useful for identification, must be removed or handled separately before conducting core statistical analysis and exploratory data visualization.
+The raw dataset, `restaurants.csv`, starts with `10018` observations across `34` attributes, encompassing a broad range of restaurant information. In its initial state, the data presents several challenges requiring immediate preparation: critical analytical variables such as `rating` and `userRatingCount` contain missing values, necessitating filtering or imputation to maintain data integrity for quality assessment.
+
+Furthermore, many of the 34 columns, particularly the numerous service and amenity indicators (e.g., `delivery`, `servesCocktails`), are stored inefficiently as generic object (string) types instead of proper `Booleans` or `numerics`, alongside price information which also requires type conversion. Additionally, columns like `id`, `name`, `formattedAddress`, and geographical coordinates, while useful for identification, must be removed or handled separately before conducting core statistical analysis and exploratory data visualization.
 
 ### 1.2: Data Attributes
 
@@ -45,7 +47,7 @@ cat("Number of Observations (# of rows): " , nrow(restuarant_data), "\n")
 cat("Number of Attributes (# of columns): " , ncol(restuarant_data), "\n")
 
 # The 'glimpse' function provides a transposed view of the data, which is great for viewing types
-#glimpse(restuarant_data)
+glimpse(restuarant_data)
 
 # Summary provides min, max, median, mean, and quartiles for numeric columns
 summary(restuarant_data)
@@ -282,7 +284,6 @@ We are testing whether the population mean of `rating` are equal across the diff
 * **Significance level ($\alpha$)**: 0.05
 
 ```{r}
-
 # filter for top 5 primaryTypes
 top_5_primeTypes = clean_data %>%
   count(primaryType, sort = TRUE) %>%
@@ -298,7 +299,6 @@ anova_5_results = aov(rating ~ primaryType, data=top_5_anova_data)
 
 # view summary of top 5 primaryTypes
 summary(anova_5_results)
-
 
 # ANOVA for all primaryTypes
 anova_results = aov(rating ~ primaryType, data=clean_data)
@@ -329,11 +329,11 @@ We are testing whether restaurants that offer delivery services have different a
 ```{r}
 # Check delivery value counts
 table(clean_data$delivery)
-delivery_true <- clean_data$rating[clean_data$delivery == TRUE]
-delivery_false  <- clean_data$rating[clean_data$delivery == FALSE]
+delivery_true = clean_data$rating[clean_data$delivery == TRUE]
+delivery_false = clean_data$rating[clean_data$delivery == FALSE]
 
 # One-tailed t-test: H1 = delivery has higher rating
-t_result <- t.test(delivery_true, delivery_false, alternative = "greater", var.equal = FALSE)
+t_result = t.test(delivery_true, delivery_false, alternative = "greater", var.equal = FALSE)
 t_result
 ```
 
@@ -356,8 +356,7 @@ library(caTools) # for stratified splitting
 
 ### 4.1: Split data set into 80:20 train and test data with name `RestaurantTraining` and `RestaurantTest` respectively
 ```{r}
-
-# Setting the seed fixes the randomness in the sample() function
+# Setting the seed fixes the randomness in the split for reproducibility
 set.seed(42)
 
 # Ensure primaryType is a factor
@@ -382,15 +381,18 @@ mr_model = lm(rating ~ . , data = RestaurantTraining )
 # display summary of the model
 summary(mr_model)
 ```
+> Conclusion
+
 > - Residual Standard  Error (RSE) is `0.447` on `5819` degrees of freedom.
-> - Multiple R-squared ($R^2$) is `0.2088` The model explains `20.88` of the variance in `rating`.
+> - Multiple R-squared ($R^2$) is `0.2088` The model explains `20.88%` of the variance in `rating`.
+> - Adjusted R-squared ($R^2$) is `0.1978`. This is a better measure for comparison, as it penalizes models for including irrelevant variables. If the Adjusted $R^2$ is much lower than $R^2$, it confirms that many of your predictors (likely the numerous `primaryType` dummy variables) are not useful and the model is slightly overfit.
+
 
 * Use this model to predict `rating` in `RestaurantTest` and calculate `MAE` and `MSE`.
 
 ```{r}  
 # Predicting rating
 ypred = predict(object=mr_model, newdata = RestaurantTest)
-
 
 # mean absolute error of predicted rating, and Actual rating
 MAE(y_pred = ypred , y_true = RestaurantTest$rating)
