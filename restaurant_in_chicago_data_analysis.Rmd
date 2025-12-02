@@ -54,7 +54,7 @@ summary(restuarant_data)
 colnames(restuarant_data)
 
 # View data in highly formatted output
-#datatable(restuarant_data)
+datatable(restuarant_data)
 ```
 
 ### 1.3: Attributes to Drop
@@ -262,8 +262,9 @@ boxplot(x=clean_data$rating, main="Ratings of Restaurants in Chicago", col="ligh
 
 
 <hr>
-# Part 3: Hypothesis Construction
+# Part 3: Hypothesis Constructions
 
+### 3.1: ANOVA Test for Restaurant Type vs. Rating
 We are testing whether the population mean of `rating` are equal across the different categories of restaurant
 `primaryType` (or among the top 5 types).
 
@@ -276,7 +277,7 @@ We are testing whether the population mean of `rating` are equal across the diff
 
 \[ H_1: {\mu}_{type1} \ne {\mu}_{type2} \ne ... \ne {\mu}_{type5} \]
 
-* **Test Method**: One way Analysis of Variance (ANOVA)
+* **Test Method**: One way Analysis of Variance (ANOVA). ANOVA test to check the association between one numerical variable and one categorical variable.
 
 * **Significance level ($\alpha$)**: 0.05
 
@@ -309,8 +310,41 @@ summary(anova_results)
 > ### Conclusion
 
 > * P-value Analysis: The calculated p-value is extremely small, for less than the significance level of $\alpha=0.05$
-> * Decision: Since the p-value is less thatn $\alpha$, we **reject the null hypotheis**.
-> * We have statistical evidence tp conclude that there is a difference in the mean customer rating among the top five primary restuarant types (including all types). In other words, the type of restaurant is a significant factor in predicting customer rating.
+> * Decision: Since the p-value is less than $\alpha$, we **reject the null hypotheis**.
+> * We have statistical evidence to conclude that there is a difference in the mean customer rating among the top five primary restuarant types (including all types). In other words, the type of restaurant is a significant factor in predicting customer rating.
+
+
+### 3.1: Hypothesis Test: Delivery vs. Rating
+
+We are testing whether restaurants that offer delivery services have different average ratings compared to those that do not
+
+- **Null Hypothesis**: Restaurants with deliveries have the same average rating as those who don't.
+
+- **Alternative Hypothesis**: Restaurants with deliveries have a higher average rating compared to those who don't
+
+- **Test Method**: One-tailed t-test comparing means of two independent samples (delivery = TRUE vs. delivery = FALSE)
+
+- **Significance level ($\alpha$)**: 0.05 
+
+```{r}
+# Check delivery value counts
+table(clean_data$delivery)
+delivery_true <- clean_data$rating[clean_data$delivery == TRUE]
+delivery_false  <- clean_data$rating[clean_data$delivery == FALSE]
+
+# One-tailed t-test: H1 = delivery has higher rating
+t_result <- t.test(delivery_true, delivery_false, alternative = "greater", var.equal = FALSE)
+t_result
+```
+
+> ### Conclusion
+> * P-value Analysis: The calculated p-value is `0.365`, which is greater than the significance level of $\alpha=0.05$
+> * Decision: Since the p-value is greater than $\alpha$, we **fail to reject
+the null hypotheis**.
+> * There is insufficient statistical evidence to conclude that restaurants offering delivery services have higher average ratings compared
+to those that do not. In fact, restaurants that offer deliveries have a lower average rating of about 0.15
+
+
 
 <hr>
 # Part 4: Linear Regression Model with Subset Selection
