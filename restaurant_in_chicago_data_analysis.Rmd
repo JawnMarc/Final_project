@@ -179,8 +179,9 @@ ggplot(clean_data, aes(x = rating, fill = factor(reservable))) +
 
 
 ```{r}
-# Calculate mean ratings for each group to add as vertical lines
-mean_ratings <- clean_data %>%
+# Using geom_density is often a better choice than an overlayed histogram for comparing distributions because it
+# provides a smoother representation and avoids issues with binning and overlapping bars, which can be hard to interpret.
+mean_ratings = clean_data %>%
   group_by(reservable) %>%
   summarise(mean_rating = mean(rating))
 
@@ -390,7 +391,7 @@ summary(mr_model)
 
 > - The following predictors appear to have a statistically significant relationship to the response
 > variable (p-value < 0.05): `userRatingCount`, `deliveryTRUE`, `curbsidePickupTRUE`, `servesDinnerTRUE`, `servesWineTRUE`, `servesCocktailsTRUE`, `goodForChildrenTRUE`, `acceptsCreditCardsTRUE`, `acceptsDebitCardsTRUE`, `acceptsCashOnlyTRUE`, `acceptsNfcTRUE`, `freeParkingLotTRUE`, `freeStreetParkingTRUE`, `wheelchairAccessibleEntranceTRUE`, `wheelchairAccessibleSeatingTRUE`, and several levels of the categorical variable `primaryTypebarbecue_restaurant`, `primaryTypebuffet_restaurant` `primaryTypecafe` `primaryTypechinese_restaurant` `primaryTypecoffee_shop` `primaryTypefast_food_restaurant` `primaryTypehamburger_restaurant` `primaryTypemeal_delivery` `primaryTypepizza_restaurant` `primaryTypesandwich_shop`.
-
+> 
 > - Residual Standard  Error (RSE) is `0.447` on `5819` degrees of freedom.
 > - Multiple R-squared ($R^2$) is `0.2088` The model explains `20.88%` of the variance in `rating`.
 > - Adjusted R-squared ($R^2$) is `0.1978`. This is a better measure for comparison, as it penalizes models for including irrelevant variables. If the Adjusted $R^2$ is much lower than $R^2$, it confirms that many of your predictors (likely the numerous `primaryType` dummy variables) are not useful and the model is slightly overfit.
@@ -402,10 +403,13 @@ summary(mr_model)
 # Predicting rating
 ypred = predict(object=mr_model, newdata = RestaurantTest)
 
-# mean absolute error of predicted rating, and Actual rating
+# Mean Absolute Error of predicted rating, and Actual rating
+# MAE measures the average magnitude of errors in a set of predictions, without considering their direction (it ignores positive or negative signs). It is the simplest and most intuitive metric because it is in the same units as the target variable
+# On average, your model's predicted rating is off by $0.318$ rating points from the actual customer rating.
 MAE(y_pred = ypred , y_true = RestaurantTest$rating)
 
-# # mean square error of predicted rating, and Actual rating
+# # Mean Square Error of predicted rating, and Actual rating
+# MSE measures the average squared difference between the predicted and actual values. By squaring the errors, $\text{MSE}$ penalizes large errors much more heavily than $\text{MAE}$
 MSE(y_pred = ypred, y_true = RestaurantTest$rating)
 ```
 
