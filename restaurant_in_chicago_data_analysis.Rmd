@@ -266,7 +266,7 @@ boxplot(x=clean_data$rating, main="Ratings of Restaurants in Chicago", col="ligh
 <hr>
 # Part 3: Hypothesis Constructions
 
-### 3.1: ANOVA Test for Restaurant Type vs. Rating
+### 3.1: ANOVA Test for Restaurant `primaryType` vs. `Rating`
 We are testing whether the population mean of `rating` are equal across the different categories of restaurant
 `primaryType` (or among the top 5 types).
 
@@ -314,7 +314,7 @@ summary(anova_results)
 > * We have statistical evidence to conclude that there is a difference in the mean customer rating among the top five primary restuarant types (including all types). In other words, the type of restaurant is a significant factor in predicting customer rating.
 
 
-### 3.2: Hypothesis Test: Delivery vs. Rating
+### 3.2: Hypothesis Test: `Delivery` vs. `Rating`
 
 We are testing whether restaurants that offer delivery services have different average ratings compared to those that do not
 
@@ -338,6 +338,7 @@ t_result
 ```
 
 > ### Conclusion
+
 > * P-value Analysis: The calculated p-value is `0.365`, which is greater than the significance level of $\alpha=0.05$
 > * Decision: Since the p-value is greater than $\alpha$, we **fail to reject
 the null hypotheis**.
@@ -378,10 +379,17 @@ RestaurantTest = subset(data_to_split, split == FALSE)
 # construct multiple linear regression model
 mr_model = lm(rating ~ . , data = RestaurantTraining )
 
-# display summary of the model
+# Display summary of the model
+# Residuals (The Error Distribution)
+# - Median,"Should be close to zero. If the median is far from zero, it suggests the model is systematically biased (e.g., over- or under-predicting)."
+# - Min & Max,Indicate the size of the largest errors. Extremely large positive or negative values suggest outliers or heteroscedasticity.
+# - 1Q & 3Q,Show the spread of the middle 50% of the errors. These should be relatively symmetric around zero.
 summary(mr_model)
 ```
 > Conclusion
+
+> - The following predictors appear to have a statistically significant relationship to the response
+> variable (p-value < 0.05): `userRatingCount`, `deliveryTRUE`, `curbsidePickupTRUE`, `servesDinnerTRUE`, `servesWineTRUE`, `servesCocktailsTRUE`, `goodForChildrenTRUE`, `acceptsCreditCardsTRUE`, `acceptsDebitCardsTRUE`, `acceptsCashOnlyTRUE`, `acceptsNfcTRUE`, `freeParkingLotTRUE`, `freeStreetParkingTRUE`, `wheelchairAccessibleEntranceTRUE`, `wheelchairAccessibleSeatingTRUE`, and several levels of the categorical variable `primaryTypebarbecue_restaurant`, `primaryTypebuffet_restaurant` `primaryTypecafe` `primaryTypechinese_restaurant` `primaryTypecoffee_shop` `primaryTypefast_food_restaurant` `primaryTypehamburger_restaurant` `primaryTypemeal_delivery` `primaryTypepizza_restaurant` `primaryTypesandwich_shop`.
 
 > - Residual Standard  Error (RSE) is `0.447` on `5819` degrees of freedom.
 > - Multiple R-squared ($R^2$) is `0.2088` The model explains `20.88%` of the variance in `rating`.
@@ -414,14 +422,27 @@ full_model = lm(rating~. , data = RestaurantTraining)
 
 # perform step-wise selection using stepAIC()
 step_forward = stepAIC(null_model, direction='forward', scope=formula(full_model))
-
-# view results of forward stepwise regression
-step_forward$anova
-
-# view final model
-summary(step_forward)
-
 ```
+
+#### 4.3.1: View results of forward stepwise regression
+```{r}
+step_forward$anova
+```
+
+#### 4.3.2 View final model
+```{r}
+summary(step_forward)
+```
+
+> Conclusion
+
+> - Residual Standard  Error (RSE) is `0.447` on `5827` degrees of freedom.
+> - Multiple R-squared ($R^2$) is `0.2077` The model explains `20.77%` of the variance in `rating`.
+> - Adjusted R-squared ($R^2$) is `0.1978`. This is a better measure for comparison, as it penalizes models for including irrelevant variables. If the Adjusted $R^2$ is much lower than $R^2$, it confirms that
+> many of your predictors (likely the numerous `primaryType` dummy variables) are not useful and the model is slightly overfit.
+
+
+
 
 * Use the `step_forward` model to predict `rating` in `RestaurantTest` and calculate `MAE` and `MSE`.
 
