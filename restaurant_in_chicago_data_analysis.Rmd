@@ -314,7 +314,7 @@ summary(anova_results)
 > * We have statistical evidence to conclude that there is a difference in the mean customer rating among the top five primary restuarant types (including all types). In other words, the type of restaurant is a significant factor in predicting customer rating.
 
 
-### 3.1: Hypothesis Test: Delivery vs. Rating
+### 3.2: Hypothesis Test: Delivery vs. Rating
 
 We are testing whether restaurants that offer delivery services have different average ratings compared to those that do not
 
