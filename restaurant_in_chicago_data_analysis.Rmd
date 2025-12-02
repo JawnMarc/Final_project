@@ -1,0 +1,351 @@
+---
+title: "Restaurant Data Analysis"
+author: "Mark Kwabena Awuku"
+date: 2025-11-02
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=TRUE)
+# install.packages(c("dplyr", "ggplot2", "readr")) # uncomment if packages are not installed
+
+library(tidyverse) # Load the Tidyverse libraries (which includes dplyr, readr, etc.)
+#library(dplyr)
+#library(readr)
+library(ggplot2)
+library(DT) #install.packages("DT") # For highly formatted HTML output
+```
+
+
+# Part 1: Data Loading and Cleaning
+### 1.1 Background
+
+The raw dataset, `combined_restaurants.csv`, starts with 10018 observations across 34 attributes, encompassing a broad range of restaurant information. In its initial state, the data presents several challenges requiring immediate preparation: critical analytical variables such as `rating` and `userRatingCount` contain missing values, necessitating filtering or imputation to maintain data integrity for quality assessment. Furthermore, many of the 34 columns, particularly the numerous service and amenity indicators (e.g., `delivery`, `servesCocktails`), are stored inefficiently as generic object (string) types instead of proper `Booleans` or `numerics`, alongside price information which also requires type conversion. Additionally, columns like `id`, `name`, `formattedAddress`, and geographical coordinates, while useful for identification, must be removed or handled separately before conducting core statistical analysis and exploratory data visualization.
+
+### 1.2 Data Attributes
+
+* `rating`: The primary target variable for prediction/analysis.
+
+* `userRatingCount`: Critical feature indicating popularity/credibility.
+
+* `primaryType`: The category of restaurant (e.g., Mexican, Thai). Essential for segmentation.
+
+* `businessStatus`: Crucial to filter out closed/temporarily closed restaurants if analyzing operational performance.
+
+* `priceStartUSD`, `priceEndUSD`: Important for price segmentation, but they require cleaning.
+
+* **Service & Amenity Booleans**: (`takeout`, `delivery`, `servesDinner`, `servesWine`, `servesCocktails`, `wheelchairAccessible`... etc.): These may be valuable for feature engineering and market segmentation.
+
+```{r load-data}
+# Load the dataset CSV
+restuarant_data = read_csv("data/combined_restaurants.csv")
+
+cat("---Number of Obervations and Attributes---\n")
+cat("Number of Observations (# of rows): " , nrow(restuarant_data), "\n")
+cat("Number of Attributes (# of columns): " , ncol(restuarant_data), "\n")
+
+# The 'glimpse' function provides a transposed view of the data, which is great for viewing types
+#glimpse(restuarant_data)
+
+# Summary provides min, max, median, mean, and quartiles for numeric columns
+summary(restuarant_data)
+
+# View all column names
+colnames(restuarant_data)
+
+# View data in highly formatted output
+#datatable(restuarant_data)
+```
+
+### 1.3 Attributes to Drop
+
+* `id`, `googleMapsUri`: Unique identifier (non-analytical values).
+* `formattedAddress`, `phone`:  Not useful for statistical modeling without extensive NLP or geo-processing
+* `name`: Too high cardinality/unique.
+* `lattitude`, `longitude`: High dimensional, rarely used in simple models).
+
+```{r}
+# drop attributes
+# tidyverse uses `select` with negative sign (-)
+clean_data = restuarant_data %>% 
+  select(-id, -googleMapsUri, -formattedAddress, -phone, -name, -latitude, -longitude)
+```
+
+
+### 1.4 Clean Rows With Missing values
+
+Will focus on:
+
+* `rating`, `userRatingCount` drop rows missing values
+* `priceStartUSD`, `priceEndUSD` drop rows with missing values and ensure values are numeric
+* Clean Boolean columns by replacing missing values or NA values with FALSE
+
+
+```{r}
+# Handle missing values in critical columns
+clean_data = clean_data %>%
+  filter(!is.na(rating) & !is.na(userRatingCount))
+
+# Clean boolean columns
+bool_cols = c("takeout", "delivery", "dineIn", "curbsidePickup", "reservable", 
+                 "servesLunch", "servesDinner", "servesBeer", "servesWine", "liveMusic", 
+                 "servesCocktails", "goodForChildren", "acceptsCreditCards", 
+                 "acceptsDebitCards", "acceptsCashOnly", "acceptsNfc", "freeParkingLot", 
+                 "freeStreetParking", "wheelchairAccessibleEntrance", 
+                 "wheelchairAccessibleRestroom", "wheelchairAccessibleSeating")
+
+# Ensure columns are logical (TRUE/FALSE) and impute missing as FALSE
+clean_data = clean_data %>%
+  mutate(across(all_of(bool_cols),
+                ~ifelse(is.na(.) | . == "False", FALSE, TRUE)))
+
+# Clean price columns
+clean_data = clean_data %>%
+  mutate(priceStartUSD = as.numeric(priceStartUSD),
+         priceEndUSD = as.numeric(priceEndUSD)) %>%
+  filter(!is.na(priceStartUSD) & !is.na(priceEndUSD))
+
+
+# Final check of dimensions and missing values
+cat("\n--- Final Cleaned Data Dimensions (R) ---\n")
+cat("Observations (Rows):", nrow(clean_data), "\n")
+cat("Attributes (Columns):", ncol(clean_data), "\n")
+cat("\n--- Missing Values Check After Final Clean (R) ---\n")
+sapply(clean_data, function(x) sum(is.na(x)))
+```
+
+```{r}
+# Save Cleaned Data
+output_file = "data/cleaned_restaurant.csv"
+write_csv(clean_data, output_file)
+```
+<hr>
+# Part 2: Exploratory Data Analysis (EDA)
+
+```{r}
+summary(clean_data)
+```
+
+
+### 2.1 Histogram Distribution of Ratings
+Histogram helps to visualize the central tendancy and spread of restaurant ratings
+
+```{r}
+ggplot(clean_data, aes(x=rating)) +
+  geom_histogram(binwidth = 0.2, fill='skyblue', color='black', alpha=0.8) +
+  # Add density line (equivalent to KDE)
+  geom_density(color = "blue", linewidth = 1) +
+  # Add vertical line for the mean
+  geom_vline(aes(xintercept = mean(rating)),
+             color = "red", linetype = "dashed", linewidth = 1,
+             show.legend = TRUE) +
+  labs(
+    title = 'Distribution of Restuarant Rating',
+    x = 'Rating',
+    y = 'Frequency'
+  )
+```
+> The histogram reveals that majority of restaurants have rating clustered between 4.0 and 4.6, suggesting a high concentration of well-regarded bussinesses. The mean rating is approximately 4.195 comfirms the positive skew.
+
+### 2.2 Boxplot: Rating Distribution by Business Type
+Boxplot will help visualize how quantitative variable (`rating`) is distributed across different categories (`primaryType`)
+
+```{r}
+# identity top 10 types
+top_types = clean_data %>%
+  count(primaryType, sort = TRUE) %>%
+  slice_head(n=10) %>%
+  pull(primaryType)
+
+data_top_types = clean_data %>%
+  # convert primaryType to a factor for proper ordering in the plot
+  mutate(primaryType=factor(primaryType, levels = rev(top_types)))
+
+# generate boxplot
+ggplot(data_top_types, aes(x=rating, y=primaryType, fill=primaryType)) +
+  geom_boxplot() +
+  labs(
+    title = 'Rating Distribution Across Top 10 Restaurant Types',
+    x = 'Rating',
+    y = 'Primary Type'
+  )
+```
+### 2.3 Overlay Histogram
+
+
+<hr>
+# Part 3: Hypothesis Construction
+
+We are testing whether the population mean of `rating` are equal across the different categories of restaurant
+`primaryType` (or among the top 5 types).
+
+* **Null hypothesis ($H_0$)**: The true mean of restaurant rating is the same for all primary restaurant types.
+
+\[ H_0: {\mu}_{type1} = {\mu}_{type2} = {\mu}_{type2} = ... = {\mu}_{type5} \]
+
+
+* **Alternative hypothesis ($H_1$)**: At least one primary restaurant type has a true mean rating that is significantly different from the others.
+
+\[ H_1: {\mu}_{type1} \ne {\mu}_{type2} \ne ... \ne {\mu}_{type5} \]
+
+* **Test Method**: One way Analysis of Variance (ANOVA)
+
+* **Significance level ($\alpha$)**: 0.05
+
+```{r}
+
+# filter for top 5 primaryTypes
+top_5_primeTypes = clean_data %>%
+  count(primaryType, sort = TRUE) %>%
+  slice_head(n=5) %>%
+  pull(primaryType)
+
+top_5_anova_data = clean_data %>%
+  filter(primaryType %in% top_5_primeTypes) %>%
+  mutate(primaryType = factor(primaryType)) # Ensure the type is a factor
+
+# ANOVA for top 5 primaryTypes
+anova_5_results = aov(rating ~ primaryType, data=top_5_anova_data)
+
+# view summary of top 5 primaryTypes
+summary(anova_5_results)
+
+
+# ANOVA for all primaryTypes
+anova_results = aov(rating ~ primaryType, data=clean_data)
+
+# View summary
+summary(anova_results)
+```
+
+> ### Conclusion
+
+> * P-value Analysis: The calculated p-value is extremely small, for less than the significance level of $\alpha=0.05$
+> * Decision: Since the p-value is less thatn $\alpha$, we **reject the null hypotheis**.
+> * We have statistical evidence tp conclude that there is a difference in the mean customer rating among the top five primary restuarant types (including all types). In other words, the type of restaurant is a significant factor in predicting customer rating.
+
+<hr>
+# Part 4: Linear Regression Model with Subset Selection
+```{r}
+library(MLmetrics)
+library(MASS) # Run stepwise regression, MASS package required
+library(caTools) # for stratified splitting
+```
+
+### 4.1: Split data set into 80:20 train and test data with name `RestaurantTraining` and `RestaurantTest` respectively
+```{r}
+
+# Setting the seed fixes the randomness in the sample() function
+set.seed(42)
+
+# Ensure primaryType is a factor
+data_to_split = clean_data %>%
+  mutate(primaryType = as.factor(primaryType))
+
+# perform stratified split on the primaryType column to maintain its distribution
+split = sample.split(data_to_split$primaryType, SplitRatio = 0.8)
+RestaurantTraining = subset(data_to_split, split == TRUE)
+RestaurantTest = subset(data_to_split, split == FALSE)
+
+# i = sample(2, nrow(data_to_split), replace = TRUE, prob = c(0.8, 0.2))
+
+# RestaurantTraining = data_to_split[i==1, ] # 80% Training sample
+# RestaurantTest = data_to_split[i==2, ] # 20% Testing sample
+
+# # Check new dimensions
+# cat("Training set size:", nrow(RestaurantTraining), "\n")
+# cat("Testing set size:", nrow(RestaurantTest), "\n")
+
+# colnames(RestaurantTraining)
+# colnames(RestaurantTest)
+```
+
+### 4.2: Multiple Regression Model
+```{r}
+# construct multiple linear regression model
+mr_model = lm(rating ~ . , data = RestaurantTraining )
+
+# display summary of the model
+summary(mr_model)
+```
+> - Residual Standard  Error (RSE) is `0.447` on `5819` degrees of freedom.
+> - Multiple R-squared ($R^2$) is `0.2088` The model explains `20.88` of the variance in `rating`.
+
+* Use this model to predict `rating` in `RestaurantTest` and calculate `MAE` and `MSE`.
+
+```{r}
+
+
+# Extract the factor levels used by the model
+# mr_levels = mr_model$xlevels$primaryType
+
+# # Filter the testset to only include levels present in the training set
+# RestaurantTest$primaryType = factor(RestaurantTest$primaryType, levels = mr_levels)
+  
+# Predicting rating
+ypred = predict(object=mr_model, newdata = RestaurantTest)
+
+# Create a data frame with true and predicted values
+# mr_df <- data.frame(
+#   y_true = RestaurantTest$rating,
+#   y_pred = ypred
+# ) %>% na.omit() # Remove rows with NA values in either column
+
+# # mean absolute error of predicted rating, and Actual rating
+# MAE(y_pred = mr_df$y_pred, y_true = RestaurantTest$rating)
+MAE(y_pred = ypred , y_true = RestaurantTest$rating)
+
+# # mean square error of predicted rating, and Actual rating
+# MSE(y_pred = mr_df$y_pred, y_true = RestaurantTest$rating)
+MSE(y_pred = ypred, y_true = RestaurantTest$rating)
+```
+
+
+### 4.3: Subset Selection Linear Regression Model
+
+```{r}
+
+# create a null model / intercept only mode
+null_model = lm(rating ~ 1, data = RestaurantTraining)
+
+# create a full model
+full_model = lm(rating~. , data = RestaurantTraining)
+
+# perform step-wise selection using stepAIC()
+step_forward = stepAIC(null_model, direction='forward', scope=formula(full_model))
+
+# view results of forward stepwise regression
+step_forward$anova
+
+# view final model
+summary(step_forward)
+
+```
+
+* Use the `step_forward` model to predict `rating` in `RestaurantTest` and calculate `MAE` and `MSE`.
+
+```{r}
+
+# Extract the factor levels used by the model
+# model_levels = step_forward$xlevels$primaryType
+
+# Filter the testset to only include levels present in the training set
+# RestaurantTest$primaryType = factor(RestaurantTest$primaryType, levels = model_levels)
+  
+# Predicting rating
+ypred_forward = predict(object=step_forward, newdata = RestaurantTest)
+
+# Create a data frame with true and predicted values
+# results_df <- data.frame(
+#   y_true = RestaurantTest$rating,
+#   y_pred = ypred_forward
+# ) %>% na.omit() # Remove rows with NA values in either column
+
+# mean absolute error of predicted rating, and Actual rating
+# MAE(y_pred = results_df$y_pred, y_true = results_df$y_true)
+MAE(y_pred = ypred_forward, y_true = RestaurantTest$rating)
+
+# mean square error of predicted rating, and Actual rating
+# MSE(y_pred = results_df$y_pred, y_true = results_df$y_true)
+MSE(y_pred = ypred_forward, y_true = RestaurantTest$rating)
+```
