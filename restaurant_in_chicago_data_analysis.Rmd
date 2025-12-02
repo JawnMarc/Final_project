@@ -20,9 +20,9 @@ library(DT) #install.packages("DT") # For highly formatted HTML output
 # Part 1: Data Loading and Cleaning
 ### 1.1 Background
 
-The raw dataset, `combined_restaurants.csv`, starts with 10018 observations across 34 attributes, encompassing a broad range of restaurant information. In its initial state, the data presents several challenges requiring immediate preparation: critical analytical variables such as `rating` and `userRatingCount` contain missing values, necessitating filtering or imputation to maintain data integrity for quality assessment. Furthermore, many of the 34 columns, particularly the numerous service and amenity indicators (e.g., `delivery`, `servesCocktails`), are stored inefficiently as generic object (string) types instead of proper `Booleans` or `numerics`, alongside price information which also requires type conversion. Additionally, columns like `id`, `name`, `formattedAddress`, and geographical coordinates, while useful for identification, must be removed or handled separately before conducting core statistical analysis and exploratory data visualization.
+The raw dataset, `restaurants.csv`, starts with 10018 observations across 34 attributes, encompassing a broad range of restaurant information. In its initial state, the data presents several challenges requiring immediate preparation: critical analytical variables such as `rating` and `userRatingCount` contain missing values, necessitating filtering or imputation to maintain data integrity for quality assessment. Furthermore, many of the 34 columns, particularly the numerous service and amenity indicators (e.g., `delivery`, `servesCocktails`), are stored inefficiently as generic object (string) types instead of proper `Booleans` or `numerics`, alongside price information which also requires type conversion. Additionally, columns like `id`, `name`, `formattedAddress`, and geographical coordinates, while useful for identification, must be removed or handled separately before conducting core statistical analysis and exploratory data visualization.
 
-### 1.2 Data Attributes
+### 1.2: Data Attributes
 
 * `rating`: The primary target variable for prediction/analysis.
 
@@ -38,7 +38,7 @@ The raw dataset, `combined_restaurants.csv`, starts with 10018 observations acro
 
 ```{r load-data}
 # Load the dataset CSV
-restuarant_data = read_csv("data/combined_restaurants.csv")
+restuarant_data = read_csv("data/restaurants.csv")
 
 cat("---Number of Obervations and Attributes---\n")
 cat("Number of Observations (# of rows): " , nrow(restuarant_data), "\n")
@@ -57,7 +57,7 @@ colnames(restuarant_data)
 #datatable(restuarant_data)
 ```
 
-### 1.3 Attributes to Drop
+### 1.3: Attributes to Drop
 
 * `id`, `googleMapsUri`: Unique identifier (non-analytical values).
 * `formattedAddress`, `phone`:  Not useful for statistical modeling without extensive NLP or geo-processing
@@ -72,7 +72,7 @@ clean_data = restuarant_data %>%
 ```
 
 
-### 1.4 Clean Rows With Missing values
+### 1.4: Clean Rows With Missing values
 
 Will focus on:
 
@@ -116,18 +116,95 @@ sapply(clean_data, function(x) sum(is.na(x)))
 
 ```{r}
 # Save Cleaned Data
-output_file = "data/cleaned_restaurant.csv"
+output_file = "data/restaurant_cleaned.csv"
 write_csv(clean_data, output_file)
 ```
 <hr>
 # Part 2: Exploratory Data Analysis (EDA)
 
 ```{r}
+# Display structure and summary of cleaned data
 summary(clean_data)
 ```
 
+### 2.1: Bar chart for Top 15 Most Common Restaurant Categories 
+```{r}
+top_categories = clean_data %>%
+  count(primaryType, sort = TRUE) %>%
+  top_n(15)
 
-### 2.1 Histogram Distribution of Ratings
+# Create the bar chart
+ggplot(top_categories, aes(x = reorder(primaryType, n), y = n)) +
+  geom_col(fill = "lightblue") +
+  coord_flip() +  # Flips the axes to make labels easier to read
+  labs(
+    title = "Top 15 Most Common Restaurant Categories",
+    x = "Restaurant Category",
+    y = "Number of Restaurants"
+  ) +
+  theme_minimal() # Number of restaurants in the top 15 categories
+```
+
+### 2.2: Bar chart for Business Status
+```{r}
+###Bar chart for Business Status
+ggplot(clean_data, aes(x = reorder(businessStatus, -table(businessStatus)[businessStatus]))) +
+  geom_bar(fill = "skyblue", color = "black") +
+  geom_text(stat = 'count', aes(label = after_stat(count)), vjust = -0.3) +
+  labs(
+    title = "Distribution of Restaurant Business Status",
+    x = "Business Status",
+    y = "Number of Restaurants"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+### 2.3: Overlay Histogram for Rating by Reservability
+```{r}
+# Create Overlay Histogram for Rating by Reservability
+ggplot(clean_data, aes(x = rating, fill = factor(reservable))) +
+  geom_histogram(aes(y = after_stat(count / sum(count)) * 100),
+                 position = "identity", alpha = 0.6, bins = 20, color = "black") +
+  scale_fill_manual(values = c("steelblue", "salmon", "lightgreen"), name = "Reservable") +
+  labs(
+    title = "Percentage Distribution of Ratings by Reservability",
+    x = "Rating",
+    y = "Percentage of Restaurants"
+  ) +
+  theme_minimal()
+```
+
+
+```{r}
+# Calculate mean ratings for each group to add as vertical lines
+mean_ratings <- clean_data %>%
+  group_by(reservable) %>%
+  summarise(mean_rating = mean(rating))
+
+# Create an overlayed density plot for Rating by Reservability
+ggplot(clean_data, aes(x = rating, fill = reservable)) +
+  geom_density(alpha = 0.6, color = "black") +
+  geom_vline(data = mean_ratings, aes(xintercept = mean_rating, color = reservable),
+             linetype = "dashed", linewidth = 1, show.legend = FALSE) +
+  scale_fill_manual(
+    name = "Reservable",
+    values = c("FALSE" = "salmon", "TRUE" = "steelblue"),
+    labels = c("No", "Yes")
+  ) +
+  scale_color_manual(
+    values = c("FALSE" = "darkred", "TRUE" = "darkblue")
+  ) +
+  labs(
+    title = "Distribution of Ratings by Reservability",
+    x = "Rating",
+    y = "Density"
+  ) +
+  theme_minimal()
+```
+
+
+### 2.4: Histogram Distribution of Ratings
 Histogram helps to visualize the central tendancy and spread of restaurant ratings
 
 ```{r}
@@ -140,14 +217,23 @@ ggplot(clean_data, aes(x=rating)) +
              color = "red", linetype = "dashed", linewidth = 1,
              show.legend = TRUE) +
   labs(
-    title = 'Distribution of Restuarant Rating',
+    title = 'Distribution of Restuarant Rating In Chicago',
     x = 'Rating',
     y = 'Frequency'
   )
+
+# Histogram of ratings in Chicago
+#hist(clean_data$rating, main="Rating of Restaurants in Chicago", xlab="Ratings", col="lightblue")
+
+# Histogram of rating counts in Chicago
+hist(clean_data$userRatingCount, main="Rating Count of Restaurants in Chicago", xlab="Rating Count", breaks=100, col="lightblue") 
+
 ```
+
 > The histogram reveals that majority of restaurants have rating clustered between 4.0 and 4.6, suggesting a high concentration of well-regarded bussinesses. The mean rating is approximately 4.195 comfirms the positive skew.
 
-### 2.2 Boxplot: Rating Distribution by Business Type
+
+### 2.5 Boxplot: Rating Distribution by Business Type
 Boxplot will help visualize how quantitative variable (`rating`) is distributed across different categories (`primaryType`)
 
 ```{r}
@@ -169,8 +255,10 @@ ggplot(data_top_types, aes(x=rating, y=primaryType, fill=primaryType)) +
     x = 'Rating',
     y = 'Primary Type'
   )
+
+# Ratings boxplot
+boxplot(x=clean_data$rating, main="Ratings of Restaurants in Chicago", col="lightblue") 
 ```
-### 2.3 Overlay Histogram
 
 
 <hr>
@@ -247,17 +335,9 @@ split = sample.split(data_to_split$primaryType, SplitRatio = 0.8)
 RestaurantTraining = subset(data_to_split, split == TRUE)
 RestaurantTest = subset(data_to_split, split == FALSE)
 
-# i = sample(2, nrow(data_to_split), replace = TRUE, prob = c(0.8, 0.2))
-
-# RestaurantTraining = data_to_split[i==1, ] # 80% Training sample
-# RestaurantTest = data_to_split[i==2, ] # 20% Testing sample
-
 # # Check new dimensions
 # cat("Training set size:", nrow(RestaurantTraining), "\n")
 # cat("Testing set size:", nrow(RestaurantTest), "\n")
-
-# colnames(RestaurantTraining)
-# colnames(RestaurantTest)
 ```
 
 ### 4.2: Multiple Regression Model
@@ -273,30 +353,15 @@ summary(mr_model)
 
 * Use this model to predict `rating` in `RestaurantTest` and calculate `MAE` and `MSE`.
 
-```{r}
-
-
-# Extract the factor levels used by the model
-# mr_levels = mr_model$xlevels$primaryType
-
-# # Filter the testset to only include levels present in the training set
-# RestaurantTest$primaryType = factor(RestaurantTest$primaryType, levels = mr_levels)
-  
+```{r}  
 # Predicting rating
 ypred = predict(object=mr_model, newdata = RestaurantTest)
 
-# Create a data frame with true and predicted values
-# mr_df <- data.frame(
-#   y_true = RestaurantTest$rating,
-#   y_pred = ypred
-# ) %>% na.omit() # Remove rows with NA values in either column
 
-# # mean absolute error of predicted rating, and Actual rating
-# MAE(y_pred = mr_df$y_pred, y_true = RestaurantTest$rating)
+# mean absolute error of predicted rating, and Actual rating
 MAE(y_pred = ypred , y_true = RestaurantTest$rating)
 
 # # mean square error of predicted rating, and Actual rating
-# MSE(y_pred = mr_df$y_pred, y_true = RestaurantTest$rating)
 MSE(y_pred = ypred, y_true = RestaurantTest$rating)
 ```
 
@@ -324,28 +389,13 @@ summary(step_forward)
 
 * Use the `step_forward` model to predict `rating` in `RestaurantTest` and calculate `MAE` and `MSE`.
 
-```{r}
-
-# Extract the factor levels used by the model
-# model_levels = step_forward$xlevels$primaryType
-
-# Filter the testset to only include levels present in the training set
-# RestaurantTest$primaryType = factor(RestaurantTest$primaryType, levels = model_levels)
-  
+```{r}  
 # Predicting rating
 ypred_forward = predict(object=step_forward, newdata = RestaurantTest)
 
-# Create a data frame with true and predicted values
-# results_df <- data.frame(
-#   y_true = RestaurantTest$rating,
-#   y_pred = ypred_forward
-# ) %>% na.omit() # Remove rows with NA values in either column
-
 # mean absolute error of predicted rating, and Actual rating
-# MAE(y_pred = results_df$y_pred, y_true = results_df$y_true)
 MAE(y_pred = ypred_forward, y_true = RestaurantTest$rating)
 
 # mean square error of predicted rating, and Actual rating
-# MSE(y_pred = results_df$y_pred, y_true = results_df$y_true)
 MSE(y_pred = ypred_forward, y_true = RestaurantTest$rating)
 ```
