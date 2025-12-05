@@ -108,7 +108,10 @@ clean_data = clean_data %>%
   filter(!is.na(priceStartUSD) & !is.na(priceEndUSD))
 
 
-# Final check of dimensions and missing values
+```
+
+### 1.5: Final Check Of Cleaned Data Dimensions and Missing Values
+```{r}
 cat("\n--- Final Cleaned Data Dimensions (R) ---\n")
 cat("Observations (Rows):", nrow(clean_data), "\n")
 cat("Attributes (Columns):", ncol(clean_data), "\n")
@@ -444,7 +447,6 @@ summary(step_forward)
 > - Multiple R-squared ($R^2$) is `0.2077` The model explains `20.77%` of the variance in `rating`.
 > - Adjusted R-squared ($R^2$) is `0.1978`. This is a better measure for comparison, as it penalizes models for including irrelevant variables. If the Adjusted $R^2$ is much lower than $R^2$, it confirms that
 > many of your predictors (likely the numerous `primaryType` dummy variables) are not useful and the model is slightly overfit.
-
 
 
 
