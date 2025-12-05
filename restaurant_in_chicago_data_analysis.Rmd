@@ -1,6 +1,6 @@
 ---
-title: "Restaurant Data Analysis"
-author: "Mark Kwabena Awuku"
+title: "Restaurant In Chicago Data Analysis"
+author: "Mark Kwabena Awuku, & Putra Dylan Juliyan"
 date: 2025-11-02
 output: html_document
 ---
